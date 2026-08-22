@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MemoryLens | Search your memories, not your screenshots.</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #030305;
+  --surface: #0a0a0c;
+  --surface-glass: rgba(20, 20, 25, 0.6);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(67, 97, 238, 0.3);
+  --text-main: #F4F4F5;
+  --text-muted: #A1A1AA;
+  --accent: #4361EE;
+  --accent-light: #7B8CFA;
+  --gradient-text: linear-gradient(135deg, #FFFFFF 0%, #A1A1AA 100%);
+  --gradient-accent: linear-gradient(135deg, #4361EE 0%, #7B8CFA 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg);
+  color: var(--text-main);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+.display { font-family: 'Space Grotesk', sans-serif; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* Background Glows */
+.ambient-glow {
+  position: absolute;
+  width: 60vw; height: 60vw;
+  background: radial-gradient(circle, rgba(67, 97, 238, 0.08) 0%, rgba(0, 0, 0, 0) 60%);
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(80px);
+}
+.glow-1 { top: -10%; left: -10%; }
+.glow-2 { top: 40%; right: -20%; background: radial-gradient(circle, rgba(123, 140, 250, 0.05) 0%, rgba(0,0,0,0) 60%); }
+.glow-3 { bottom: -10%; left: 20%; }
+
+/* Utilities */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 120px 0; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.gradient-text { background: var(--gradient-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.accent-text { background: var(--gradient-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.section-tag { font-size: 13px; font-weight: 600; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; display: block; }
+.section-title { font-size: clamp(32px, 4vw, 48px); font-weight: 700; margin-bottom: 24px; line-height: 1.1; letter-spacing: -0.03em; }
+.section-desc { font-size: 18px; color: var(--text-muted); max-width: 600px; margin-bottom: 48px; }
+
+/* Reveal Animation */
+.reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+.reveal.active { opacity: 1; transform: translateY(0); }
+
+/* 1. Navbar */
+nav {
+  position: fixed; top: 0; width: 100%; padding: 16px 48px; display: flex; justify-content: space-between; align-items: center;
+  z-index: 100; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); background: rgba(3, 3, 5, 0.7);
+}
+.nav-left { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text-main); }
+.nav-logo { width: 32px; height: 32px; border-radius: 8px; background: var(--gradient-accent); display: flex; align-items: center; justify-content: center; }
+.nav-links { display: flex; gap: 32px; }
+.nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+.nav-links a:hover { color: var(--text-main); }
+.nav-cta { background: var(--text-main); color: var(--bg); padding: 10px 20px; border-radius: 100px; font-size: 14px; font-weight: 600; text-decoration: none; transition: transform 0.2s; }
+.nav-cta:hover { transform: scale(1.05); }
+
+/* Buttons */
+.btn-primary { display: inline-flex; align-items: center; gap: 10px; background: var(--text-main); color: var(--bg); padding: 16px 32px; border-radius: 100px; font-size: 16px; font-weight: 600; text-decoration: none; transition: transform 0.2s; }
+.btn-primary:hover { transform: scale(1.02); }
+.btn-secondary { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); padding: 16px 32px; border-radius: 100px; font-size: 16px; font-weight: 500; text-decoration: none; transition: background 0.2s; }
+.btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+/* 2. Hero */
+.hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding-top: 100px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--accent-light); background: rgba(67, 97, 238, 0.1); border: 1px solid rgba(67, 97, 238, 0.2); padding: 8px 16px; border-radius: 999px; margin-bottom: 32px; }
+.hero-title { font-size: clamp(48px, 6vw, 84px); font-weight: 700; line-height: 1.05; letter-spacing: -0.04em; max-width: 900px; margin-bottom: 24px; }
+.hero-desc { font-size: clamp(18px, 2vw, 22px); color: var(--text-muted); max-width: 700px; margin-bottom: 40px; }
+.hero-actions { display: flex; gap: 16px; justify-content: center; margin-bottom: 80px; }
+
+/* 3. Hero Demo */
+.hero-demo { width: 100%; max-width: 600px; background: var(--surface-glass); border: 1px solid var(--border); border-radius: 20px; padding: 24px; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; }
+.hero-demo::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+.demo-search { background: #000; border: 1px solid var(--border); padding: 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: var(--text-main); font-size: 15px; }
+.demo-ai-text { font-size: 12px; color: var(--accent-light); text-align: center; margin-bottom: 24px; display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 600; }
+.demo-results { display: flex; flex-direction: column; gap: 12px; }
+.demo-card { background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 12px; display: flex; gap: 16px; align-items: center; }
+.demo-card-icon { width: 40px; height: 40px; border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.demo-card-title { font-weight: 600; font-size: 15px; }
+.demo-card-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* 4. Problem */
+.problem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+.list-messy { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.tag-messy { background: var(--surface); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; color: var(--text-muted); font-size: 14px; font-family: 'IBM Plex Mono', monospace; }
+.problem-vs { background: var(--surface-glass); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
+.vs-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.vs-row:last-child { border-bottom: none; }
+.vs-bad { color: #ef4444; font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
+.vs-good { color: #10b981; font-weight: 600; font-size: 15px; }
+
+/* 5. How It Works (Pipeline) */
+.pipeline { display: flex; justify-content: space-between; position: relative; margin-top: 64px; flex-wrap: wrap; gap: 24px;}
+.pipeline::before { content: ''; position: absolute; top: 24px; left: 0; right: 0; height: 1px; background: var(--border); z-index: -1; }
+.pipe-step { background: var(--bg); flex: 1; min-width: 150px; }
+.pipe-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--accent-light); }
+.pipe-title { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+.pipe-desc { font-size: 14px; color: var(--text-muted); }
+
+/* 6. Bento Features */
+.bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+.bento-card { background: var(--surface-glass); border: 1px solid var(--border); border-radius: 24px; padding: 40px; position: relative; overflow: hidden; transition: border-color 0.3s ease; }
+.bento-card:hover { border-color: var(--border-glow); }
+.span-8 { grid-column: span 8; }
+.span-4 { grid-column: span 4; }
+.span-6 { grid-column: span 6; }
+.span-12 { grid-column: span 12; display: flex; align-items: center; justify-content: space-between; }
+.bento-title { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+.bento-desc { color: var(--text-muted); font-size: 16px; max-width: 90%; }
+.intent-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.badge-intent { background: rgba(67, 97, 238, 0.15); border: 1px solid rgba(67, 97, 238, 0.3); color: var(--accent-light); padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 500; }
+.chat-mock { background: #000; border: 1px solid var(--border); border-radius: 16px; padding: 20px; width: 320px; }
+.chat-bubble { background: var(--surface); padding: 12px 16px; border-radius: 12px 12px 12px 0; font-size: 14px; margin-bottom: 12px; color: var(--text-muted); }
+.chat-bubble.user { background: var(--gradient-accent); color: #fff; border-radius: 12px 12px 0 12px; margin-left: 20px; margin-bottom: 16px; }
+
+/* 7. Use Cases */
+.usecase-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 48px; }
+.usecase-card { background: var(--surface); border: 1px solid var(--border); padding: 24px; border-radius: 16px; }
+.usecase-icon { font-size: 24px; margin-bottom: 16px; display: block; }
+.usecase-title { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+.usecase-desc { font-size: 13px; color: var(--text-muted); font-style: italic; }
+
+/* 8. Comparison Table */
+.compare-table { width: 100%; border-collapse: collapse; margin-top: 48px; background: var(--surface-glass); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+.compare-table th, .compare-table td { padding: 20px 24px; text-align: left; border-bottom: 1px solid var(--border); }
+.compare-table th { background: rgba(255,255,255,0.02); font-weight: 600; color: var(--text-muted); }
+.compare-table td:first-child { color: var(--text-muted); }
+.compare-table td:last-child { color: var(--text-main); font-weight: 500; }
+
+/* 9. Security & Trust */
+.trust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+.trust-card { padding: 24px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+.trust-icon { font-size: 24px; margin-bottom: 16px; }
+.trust-title { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+.trust-desc { font-size: 14px; color: var(--text-muted); }
+
+/* 10. Architecture & Tech */
+.arch-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; text-align: center; margin-top: 48px; }
+.arch-flow { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--text-muted); white-space: pre; line-height: 2; overflow-x: auto;}
+.tech-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 32px; margin-top: 32px; border-top: 1px solid var(--border); padding-top: 32px; }
+.tech-item { text-align: center; }
+.tech-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+.tech-value { font-weight: 600; font-size: 15px; }
+
+/* 11. Final CTA & Footer */
+.cta-section { text-align: center; padding: 120px 0; }
+.cta-title { font-size: clamp(36px, 5vw, 64px); font-weight: 700; margin-bottom: 24px; line-height: 1.1; }
+footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; }
+.footer-text { color: var(--text-muted); font-size: 14px; }
+.footer-hackathon { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  nav { padding: 16px 24px; }
+  .nav-links { display: none; }
+  .problem-grid, .span-8, .span-4, .span-6, .span-12 { grid-template-columns: 1fr; grid-column: span 12; }
+  .span-12 { flex-direction: column; align-items: flex-start; }
+  .pipeline::before { display: none; }
+  .usecase-grid { grid-template-columns: repeat(2, 1fr); }
+  .trust-grid { grid-template-columns: 1fr; }
+  .hero-actions { flex-direction: column; width: 100%; max-width: 300px; margin: 0 auto 60px; }
+  .chat-mock { width: 100%; margin-top: 32px; }
+}
+@media (max-width: 600px) {
+  .usecase-grid { grid-template-columns: 1fr; }
+  .arch-flow { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- 1. NAVBAR -->
+  <nav>
+    <a href="#" class="nav-left">
+      <div class="nav-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5Z"/></svg>
+      </div>
+      <span class="display" style="font-weight: 700; font-size: 18px;">MemoryLens</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="#use-cases">Use Cases</a>
+      <a href="#security">Security</a>
+    </div>
+    <a href="frontend/memorylens.html" class="nav-cta">Launch</a>
+  </nav>
+
+  <!-- 2. HERO SECTION -->
+  <header class="hero container reveal">
+    <div class="hero-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      ✦ AI-Powered Personal Memory Engine
+    </div>
+    <h1 class="hero-title display gradient-text">Search your memories,<br/>not your screenshots.</h1>
+    <p class="hero-desc">MemoryLens turns your screenshots into a searchable personal memory. It reads what’s inside each image, understands its context and intent, and lets you find anything using natural language.</p>
+    
+    <div class="hero-actions">
+      <a href="frontend/memorylens.html" class="btn-primary">
+        Launch →
+      </a>
+      <a href="#how-it-works" class="btn-secondary">
+        See How It Works ↓
+      </a>
+    </div>
+
+    <!-- 3. HERO DEMO -->
+    <div class="hero-demo reveal">
+      <div class="demo-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="mono">show me recipes I wanted to cook</span>
+      </div>
+      
+      <div class="demo-ai-text">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        AI understands intent
+      </div>
+
+      <div class="demo-results">
+        <div class="demo-card">
+          <div class="demo-card-icon">🍳</div>
+          <div>
+            <div class="demo-card-title">Creamy Garlic Pasta</div>
+            <div class="demo-card-sub">Recipe · Cook Later</div>
+          </div>
+        </div>
+        <div class="demo-card">
+          <div class="demo-card-icon">🍛</div>
+          <div>
+            <div class="demo-card-title">Chicken Biryani</div>
+            <div class="demo-card-sub">Recipe · Cook Later</div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 16px; font-size: 12px; color: #10b981; font-weight: 500;">Semantic match • 98% relevance</div>
+    </div>
+  </header>
+
+  <!-- 4. PROBLEM SECTION -->
+  <section class="section container reveal" id="problem">
+    <div class="problem-grid">
+      <div>
+        <span class="section-tag">The Problem</span>
+        <h2 class="section-title display">Your screenshot library wasn't built for memory.</h2>
+        <p class="section-desc">We screenshot everything. Receipts, recipes, products, addresses, tickets, notes, and documents. And then we completely forget where we saved them.</p>
+        
+        <div class="list-messy">
+          <span class="tag-messy">Screenshot_2025_08_14.png</span>
+          <span class="tag-messy">Screenshot_2025_08_15.png</span>
+          <span class="tag-messy">IMG_9281.png</span>
+          <span class="tag-messy">IMG_9282.png</span>
+        </div>
+      </div>
+      
+      <div class="problem-vs">
+        <div class="vs-row">
+          <span class="vs-bad">Filename → ❌</span>
+        </div>
+        <div class="vs-row">
+          <span class="vs-bad">Date → ❌</span>
+        </div>
+        <div class="vs-row">
+          <span class="vs-bad">Manual tagging → ❌</span>
+        </div>
+        <div class="vs-row">
+          <span class="vs-bad">Scrolling → ❌</span>
+        </div>
+        <div class="vs-row" style="padding-top: 24px; margin-top: 8px; border-top: 1px solid var(--border);">
+          <span style="color: var(--text-muted); font-size: 14px;">MemoryLens</span>
+          <span class="vs-good accent-text">"Find what I mean." →</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. HOW IT WORKS -->
+  <section class="section container reveal" id="how-it-works">
+    <span class="section-tag" style="text-align: center;">How It Works</span>
+    <h2 class="section-title display" style="text-align: center;">From screenshot to searchable memory.</h2>
+    
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-icon">↑</div>
+        <div class="pipe-title">1. Capture</div>
+        <div class="pipe-desc">Upload your screenshots containing text, products, or receipts.</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">✦</div>
+        <div class="pipe-title">2. Understand</div>
+        <div class="pipe-desc">AI reads text, numbers, dates, and layout context.</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🏷️</div>
+        <div class="pipe-title">3. Classify</div>
+        <div class="pipe-desc">Automatically identifies category (Shopping, Travel, etc).</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🧠</div>
+        <div class="pipe-title">4. Intent</div>
+        <div class="pipe-desc">Understands the WHY (e.g. "Buy Later", "Cook Later").</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🔍</div>
+        <div class="pipe-title">5. Retrieve</div>
+        <div class="pipe-desc">Ask naturally and find exactly what you saved.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. CORE FEATURES (BENTO GRID) -->
+  <section class="section container reveal" id="features">
+    <span class="section-tag">Core Features</span>
+    
+    <div class="bento-grid">
+      <!-- 1. Semantic Search -->
+      <div class="bento-card span-8">
+        <h3 class="bento-title display gradient-text">Search by meaning.</h3>
+        <p class="bento-desc">Describe what you remember instead of remembering a filename. Example: <br/><br/> <span class="mono" style="color:#fff;">"things I wanted to buy last winter"</span></p>
+        <div style="margin-top: 24px; display: flex; gap: 12px; opacity: 0.8;">
+          <span style="background: var(--surface); padding: 8px 16px; border-radius: 8px;">🎧 Headphones</span>
+          <span style="background: var(--surface); padding: 8px 16px; border-radius: 8px;">👟 Running Shoes</span>
+        </div>
+      </div>
+
+      <!-- 2. AI Understanding -->
+      <div class="bento-card span-4">
+        <h3 class="bento-title display gradient-text">AI that reads the whole screenshot.</h3>
+        <p class="bento-desc">Beyond basic OCR. It combines extracted text, visual context, and metadata.</p>
+        <div class="mono" style="margin-top: 24px; font-size: 12px; color: var(--accent-light);">TEXT ↓ OBJECTS ↓ CONTEXT ↓ MEANING</div>
+      </div>
+
+      <!-- 3. Auto Classification -->
+      <div class="bento-card span-6">
+        <h3 class="bento-title display gradient-text">Automatically organized.</h3>
+        <p class="bento-desc">No manual tagging required.</p>
+        <div class="intent-badges">
+          <span class="badge-intent" style="background: rgba(180, 118, 42, 0.1); border-color: rgba(180, 118, 42, 0.3); color:#FBF1E4;">🛒 Shopping</span>
+          <span class="badge-intent" style="background: rgba(76, 124, 63, 0.1); border-color: rgba(76, 124, 63, 0.3); color:#EFF6EA;">🍳 Recipes</span>
+          <span class="badge-intent" style="background: rgba(30, 127, 115, 0.1); border-color: rgba(30, 127, 115, 0.3); color:#E9F5F2;">✈️ Travel</span>
+          <span class="badge-intent" style="background: rgba(176, 72, 63, 0.1); border-color: rgba(176, 72, 63, 0.3); color:#FBEBE9;">🧾 Bills</span>
+        </div>
+      </div>
+
+      <!-- 4. Intent Engine -->
+      <div class="bento-card span-6">
+        <h3 class="bento-title display gradient-text">Don't just understand WHAT. Understand WHY.</h3>
+        <p class="bento-desc">A screenshot has a reason: "I want to buy this."</p>
+        <div class="intent-badges">
+          <span class="badge-intent">🛒 Buy Later</span>
+          <span class="badge-intent">💳 Pay Later</span>
+          <span class="badge-intent">📚 Study Later</span>
+        </div>
+      </div>
+
+      <!-- 5. AI Memory Assistant -->
+      <div class="bento-card span-12">
+        <div style="max-width: 400px;">
+          <h3 class="bento-title display gradient-text">Just ask your memories.</h3>
+          <p class="bento-desc">Ask follow-up questions like "Which bill is due first?" or "Show me the screenshot."</p>
+        </div>
+        <div class="chat-mock">
+          <div class="chat-bubble user">What bills do I need to pay?</div>
+          <div class="chat-bubble">I found 2 payment-related screenshots.<br/><br/>🧾 Electricity Bill (₹1,840)<br/>🌐 Internet Bill (₹999)</div>
+        </div>
+      </div>
+
+      <!-- 6. Instant Retrieval -->
+      <div class="bento-card span-12" style="text-align: center; justify-content: center; flex-direction: column;">
+        <h3 class="bento-title display gradient-text">From thousands of screenshots to one answer.</h3>
+        <div class="mono" style="margin-top: 24px; color: var(--text-muted);">
+          4,286 screenshots<br/>↓<br/>"Find my Goa hotel booking"<br/>↓<br/><span style="color:var(--text-main);">🏨 Goa Hotel Reservation</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. REAL-WORLD USE CASES -->
+  <section class="section container reveal" id="use-cases">
+    <span class="section-tag" style="text-align: center;">Real-World Use Cases</span>
+    <h2 class="section-title display" style="text-align: center;">One memory engine. Thousands of use cases.</h2>
+    
+    <div class="usecase-grid">
+      <div class="usecase-card">
+        <span class="usecase-icon">🛒</span>
+        <div class="usecase-title">Shopping</div>
+        <div class="usecase-desc">"Find the headphones I wanted to buy."</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">🍳</span>
+        <div class="usecase-title">Recipes</div>
+        <div class="usecase-desc">"Show me that pasta recipe I saved."</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">🧾</span>
+        <div class="usecase-title">Receipts</div>
+        <div class="usecase-desc">"Find my laptop purchase receipt."</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">✈️</span>
+        <div class="usecase-title">Travel</div>
+        <div class="usecase-desc">"Find my hotel booking in Goa."</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">📍</span>
+        <div class="usecase-title">Addresses</div>
+        <div class="usecase-desc">"Where was that restaurant address?"</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">📚</span>
+        <div class="usecase-title">Study</div>
+        <div class="usecase-desc">"Find the screenshot about neural networks."</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">💳</span>
+        <div class="usecase-title">Bills</div>
+        <div class="usecase-desc">"What bills do I need to pay?"</div>
+      </div>
+      <div class="usecase-card">
+        <span class="usecase-icon">📝</span>
+        <div class="usecase-title">Notes</div>
+        <div class="usecase-desc">"Find the project idea I saved last month."</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. WHY MEMORYLENS (Comparison) -->
+  <section class="section container reveal">
+    <h2 class="section-title display" style="text-align: center;">Not another screenshot folder.</h2>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Traditional Gallery</th>
+          <th>MemoryLens</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Filename</td><td>Meaning</td></tr>
+        <tr><td>Date-based</td><td>Context-based</td></tr>
+        <tr><td>Manual organization</td><td>Automatic classification</td></tr>
+        <tr><td>OCR only</td><td>OCR + AI understanding</td></tr>
+        <tr><td>Keyword search</td><td>Semantic search</td></tr>
+        <tr><td>Find text</td><td>Find intent</td></tr>
+        <tr><td>Scroll</td><td>Ask</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 9. SECURITY & TRUST -->
+  <section class="section container reveal" id="security">
+    <span class="section-tag">Security & Trust</span>
+    <h2 class="section-title display">Your memories stay yours.</h2>
+    <p class="section-desc">Designed with privacy and user control in mind.</p>
+    
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="trust-icon">🔒</div>
+        <div class="trust-title">Private by design</div>
+        <div class="trust-desc">Your screenshots are personal data. Access is limited to the authenticated user.</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon">🛡️</div>
+        <div class="trust-title">Controlled access</div>
+        <div class="trust-desc">Only authorized requests can retrieve memories.</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon">📦</div>
+        <div class="trust-title">Secure storage</div>
+        <div class="trust-desc">Screenshots and metadata are stored separately from the search layer.</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon">🧠</div>
+        <div class="trust-title">Transparent AI</div>
+        <div class="trust-desc">AI-generated categories and intent are presented as interpretations, not guaranteed facts.</div>
+      </div>
+      <div class="trust-card">
+        <div class="trust-icon">🗑️</div>
+        <div class="trust-title">User control</div>
+        <div class="trust-desc">Users can delete memories and their associated metadata instantly.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. ARCHITECTURE & TECH -->
+  <section class="section container reveal">
+    <h2 class="section-title display" style="text-align: center; font-size: 24px;">Architecture Preview</h2>
+    
+    <div class="arch-diagram">
+      <div class="arch-flow">
+Screenshot
+    │
+    ▼
+[ OCR / Vision ]
+    │
+    ▼
+[ AI Understanding (Text + Context + Category + Intent) ]
+    │
+    ▼
+[ Semantic Index ]
+    │
+    ▼
+[ Natural Search ]
+    │
+    ▼
+Relevant Memory
+      </div>
+      
+      <div class="tech-row">
+        <div class="tech-item"><div class="tech-label">Frontend</div><div class="tech-value">HTML / CSS / JS</div></div>
+        <div class="tech-item"><div class="tech-label">Backend</div><div class="tech-value">Python / FastAPI</div></div>
+        <div class="tech-item"><div class="tech-label">AI</div><div class="tech-value">Vision + LLM</div></div>
+        <div class="tech-item"><div class="tech-label">Search</div><div class="tech-value">Vector Database</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. FINAL CTA -->
+  <section class="section container reveal cta-section">
+    <h2 class="cta-title display gradient-text">Your screenshots already contain<br/>your memories.</h2>
+    <p class="section-desc" style="margin: 0 auto 40px; text-align: center;">Stop scrolling through thousands of screenshots.<br/>Start searching by what you remember.</p>
+    
+    <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+      <a href="frontend/memorylens.html" class="btn-primary">Launch MemoryLens →</a>
+      <a href="#how-it-works" class="btn-secondary">Explore the demo</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="nav-logo" style="margin: 0 auto 16px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5Z"/></svg>
+      </div>
+      <div class="footer-text">MemoryLens</div>
+      <div class="footer-hackathon">Built for SCRYPTIC — Open Innovation</div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const reveals = document.querySelectorAll(".reveal");
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("active");
+          }
+        });
+      }, { threshold: 0.1 });
+
+      reveals.forEach(reveal => { observer.observe(reveal); });
+    });
+  </script>
+</body>
+</html>
