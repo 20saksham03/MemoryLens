@@ -24,18 +24,18 @@ Will be updated after deployment.
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | /api/upload | Upload and analyze screenshot |
-| POST | /api/search | Semantic screenshot search |
+| POST | /api/screenshots/upload | Upload and analyze screenshot |
 | GET | /api/screenshots | Get all screenshots |
 | GET | /api/screenshots/{id} | Get one screenshot |
 | DELETE | /api/screenshots/{id} | Delete screenshot |
-| POST | /api/chat | Ask AI questions about screenshots |
+| POST | /api/search | Semantic screenshot search |
+| POST | /api/chat | Ask AI questions |
 
 ---
 
 # 1. Upload Screenshot
 
-## POST /api/upload
+## POST /api/screenshots/upload
 
 Uploads a screenshot and sends it through the AI processing pipeline.
 
