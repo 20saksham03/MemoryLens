@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from database.database import get_connection
 from services.gemini_service import analyze_screenshot
 
+from services.vector_service import add_screenshot
 
 router = APIRouter(
     prefix="/api/screenshots",
@@ -96,6 +97,10 @@ async def upload_screenshot(file: UploadFile = File(...)):
         screenshot_id = cursor.lastrowid
 
         connection.commit()
+        add_screenshot(
+            screenshot_id,
+            analysis
+        )
         connection.close()
 
         return {
@@ -115,3 +120,57 @@ async def upload_screenshot(file: UploadFile = File(...)):
             status_code=500,
             detail=f"Screenshot processing failed: {str(exc)}",
         )
+
+    
+@router.get("")
+def get_screenshots():
+    connection = get_connection()
+
+    rows = connection.execute(
+        """
+        SELECT
+            id,
+            filename,
+            title,
+            summary,
+            category,
+            intent,
+            keywords,
+            entities,
+            date,
+            price,
+            location,
+            image_path,
+            created_at
+        FROM screenshots
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+
+    connection.close()
+
+    screenshots = []
+
+    for row in rows:
+        screenshots.append(
+            {
+                "id": row["id"],
+                "filename": row["filename"],
+                "title": row["title"],
+                "summary": row["summary"],
+                "category": row["category"],
+                "intent": row["intent"],
+                "keywords": json.loads(row["keywords"] or "[]"),
+                "entities": json.loads(row["entities"] or "[]"),
+                "date": row["date"],
+                "price": row["price"],
+                "location": row["location"],
+                "image_url": f"/uploads/{Path(row['image_path']).name}",
+                "created_at": row["created_at"],
+            }
+        )
+
+    return {
+        "screenshots": screenshots,
+        "count": len(screenshots),
+    }

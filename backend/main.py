@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from database.database import initialize_database
 from routes.screenshots import router as screenshots_router
 
+from routes.search import router as search_router
 
 app = FastAPI(
     title="MemoryLens API",
@@ -23,7 +24,7 @@ app.mount(
 
 
 app.include_router(screenshots_router)
-
+app.include_router(search_router)
 
 @app.get("/")
 def root():
